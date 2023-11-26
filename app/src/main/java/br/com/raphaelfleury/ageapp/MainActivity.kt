@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -41,6 +43,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
@@ -51,6 +54,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import br.com.raphaelfleury.ageapp.models.game.Game
 import br.com.raphaelfleury.ageapp.models.game.Games
 import br.com.raphaelfleury.ageapp.models.game.Player
 import br.com.raphaelfleury.ageapp.ui.theme.AgeAppTheme
@@ -58,9 +62,9 @@ import br.com.raphaelfleury.ageapp.ui.theme.GreyText
 import br.com.raphaelfleury.ageapp.ui.theme.MapIconStroke
 import br.com.raphaelfleury.ageapp.ui.theme.MatchCardBackground
 import br.com.raphaelfleury.ageapp.ui.theme.WhiteText
-import br.com.raphaelfleury.ageapp.ui.theme.WinPlayer
 import br.com.raphaelfleury.ageapp.util.Resource
 import br.com.raphaelfleury.ageapp.utils.getCivIcon
+import br.com.raphaelfleury.ageapp.utils.getPlayerResultColor
 import br.com.raphaelfleury.ageapp.utils.samplePlayer
 import br.com.raphaelfleury.ageapp.utils.samplePlayer2
 import br.com.raphaelfleury.ageapp.viewmodel.AgeViewModel
@@ -84,7 +88,18 @@ class MainActivity : ComponentActivity() {
                     Column(
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        MatchCard()
+                        ageInfo.data?.let { games ->
+                            LazyColumn(
+                                Modifier
+                                    .fillMaxSize(),
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(games.games) { game ->
+                                    MatchCard(game)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -92,9 +107,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Preview(showSystemUi = true)
+
 @Composable
-fun MatchCard() {
+fun MatchCard(game: Game) {
     var expandedState by remember { mutableStateOf(false) }
     val rotationState by animateFloatAsState(
         targetValue = if (expandedState) 180f else 0f, label = ""
@@ -106,7 +121,7 @@ fun MatchCard() {
         border = BorderStroke(1.dp, Color.Black),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, start = 8.dp, end = 8.dp)
+            .padding(8.dp)
             .animateContentSize(
                 animationSpec = tween(
                     durationMillis = 300,
@@ -122,7 +137,7 @@ fun MatchCard() {
                 .fillMaxWidth()
                 .background(MatchCardBackground)
         ) {
-            MatchTopDetails()
+            MatchTopDetails(game)
 
             IconButton(
                 modifier = Modifier
@@ -137,31 +152,39 @@ fun MatchCard() {
                     contentDescription = "Drop-Down Arrow"
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column {
-                    PlayerInfo(player = samplePlayer)
-                    PlayerInfo(player = samplePlayer2)
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column(
-                    horizontalAlignment = Alignment.End
+            if (expandedState) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
                 ) {
-                    PlayerInfo2(player = samplePlayer)
-                    PlayerInfo2(player = samplePlayer2)
+                    Column {
+                        game.teams.first().forEach { team ->
+                            PlayerInfo2(player = team.player)
+                        }
+                    }
+                    Text(
+                        text = "VS",
+                        color = WhiteText,
+                        modifier = Modifier.align(CenterVertically)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        game.teams[1].forEach { team ->
+                            PlayerInfo2(player = team.player)
+                        }
+                    }
                 }
             }
-//            if (expandedState) {
-//            }
         }
     }
 }
 
 @Composable
-fun MatchTopDetails() {
+fun MatchTopDetails(game: Game) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -183,11 +206,11 @@ fun MatchTopDetails() {
                 .padding(PaddingValues(vertical = 16.dp))
         ) {
             Text(
-                text = "Golden Heights",
+                text = game.map,
                 color = WhiteText
             )
             Text(
-                text = "RM 2v2 39m",
+                text = game.kind,
                 color = GreyText
             )
 
@@ -200,16 +223,11 @@ fun MatchTopDetails() {
                 .padding(PaddingValues(vertical = 16.dp))
         ) {
             Text(
-                text = "about 2 hours ago",
+                text = game.started_at,
                 color = WhiteText
             )
         }
     }
-}
-
-@Composable
-fun MatchPlayersDetails() {
-
 }
 
 @Composable
@@ -218,7 +236,6 @@ private fun PlayerInfo(player: Player) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier
             .padding(PaddingValues(start = 8.dp))
-            .fillMaxWidth(0.5f)
     ) {
         Image(
             painter = painterResource(id = getCivIcon(player.civilization)),
@@ -227,7 +244,7 @@ private fun PlayerInfo(player: Player) {
         )
         Text(
             text = player.name,
-            color = WinPlayer,
+            color = getPlayerResultColor(player),
             textAlign = TextAlign.Center,
             fontWeight = FontWeight(500)
         )
@@ -250,7 +267,6 @@ private fun PlayerInfo2(player: Player) {
             horizontalArrangement = Arrangement.End,
             modifier = Modifier
                 .padding(PaddingValues(end = 8.dp))
-                .fillMaxWidth()
         ) {
             Text(
                 text = player.rating.toString(),
@@ -260,7 +276,7 @@ private fun PlayerInfo2(player: Player) {
             )
             Text(
                 text = player.name,
-                color = WinPlayer,
+                color = getPlayerResultColor(player),
                 fontWeight = FontWeight(500)
             )
             Image(
